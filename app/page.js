@@ -1,11 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useState } from 'react';
-import { Plus, Users, ShieldCheck, Radar, Network, Server, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useData } from '@/components/DataProvider';
-import { NameModal, EmptyState, GridSkeleton, Counts } from '@/components/ui';
-
-const ICONS = { 'data protection': ShieldCheck, soc: Radar, network: Network, system: Server };
+import { NameModal, EmptyState, GridSkeleton, Counts, AvatarStack, teamTheme, teamIcon } from '@/components/ui';
 
 export default function Home() {
   const { teams, workers, tasks, loading, addTeam, deleteTeam } = useData();
@@ -13,16 +11,18 @@ export default function Home() {
 
   return (
     <>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Teams</h1>
-          <p className="mt-1 text-sm text-slate-500">Pick a team to see its people and their tasks.</p>
+          <h1 className="font-display text-3xl font-semibold text-ink">Your teams</h1>
+          <p className="mt-1 text-slate-500">Pick a team to see its people and what they’re working on.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setOpen(true)}><Plus size={16} /> Add team</button>
       </div>
 
+      {!loading && teams.length > 0 && <div className="mb-8"><Counts tasks={tasks} labels /></div>}
+
       {loading ? <GridSkeleton /> : !teams.length ? (
-        <EmptyState icon={Users} title="No teams yet" hint="Create the first team to get started.">
+        <EmptyState title="No teams yet" hint="Create your first team to get started.">
           <button className="btn btn-primary" onClick={() => setOpen(true)}><Plus size={16} /> Add team</button>
         </EmptyState>
       ) : (
@@ -31,18 +31,22 @@ export default function Home() {
             const members = workers.filter(w => w.team_id === t.id);
             const ids = new Set(members.map(w => w.id));
             const teamTasks = tasks.filter(k => ids.has(k.worker_id));
-            const Icon = ICONS[t.name.toLowerCase()] || Users;
+            const theme = teamTheme(t.name);
+            const Icon = teamIcon(t.name);
             return (
-              <div key={t.id} className="group relative rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-indigo-300 hover:shadow-md">
-                <Link href={`/teams/${t.id}`} className="block p-5">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><Icon size={20} /></span>
-                  <h2 className="mt-4 text-lg font-semibold text-slate-900">{t.name}</h2>
-                  <p className="mt-0.5 text-sm text-slate-500">{members.length} {members.length === 1 ? 'member' : 'members'}</p>
+              <div key={t.id} className={`group relative rounded-3xl border border-slate-200/80 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${theme.hover}`}>
+                <Link href={`/teams/${t.id}`} className="block rounded-3xl p-5">
+                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${theme.blob}`}><Icon size={24} /></span>
+                  <h2 className="mt-4 font-display text-xl font-semibold text-ink">{t.name}</h2>
+                  <div className="mt-2 flex items-center gap-3">
+                    {members.length > 0 && <AvatarStack names={members.map(w => w.name)} />}
+                    <p className="text-sm text-slate-500">{members.length} {members.length === 1 ? 'member' : 'members'}</p>
+                  </div>
                   <div className="mt-4"><Counts tasks={teamTasks} /></div>
                 </Link>
                 <button aria-label={`Delete ${t.name}`}
                   onClick={() => confirm(`Delete team "${t.name}" with all its workers and tasks?`) && deleteTeam(t.id).catch(() => {})}
-                  className="absolute right-3 top-3 rounded-md p-1.5 text-slate-300 opacity-100 hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100">
+                  className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-300 hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100">
                   <Trash2 size={16} />
                 </button>
               </div>
