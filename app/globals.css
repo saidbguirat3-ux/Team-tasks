@@ -2,13 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    background-color: #f4f6fc;
+    background-image: radial-gradient(#dce1f4 1.2px, transparent 1.2px);
+    background-size: 24px 24px;
+  }
+}
+
 @layer components {
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20;
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink shadow-sm placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50;
   }
-  .btn-primary { @apply bg-indigo-600 text-white shadow-sm hover:bg-indigo-700; }
+  .btn-primary {
+    @apply bg-brand text-white shadow-[0_3px_0_0_#3340C8] hover:bg-[#5668f5] active:translate-y-[2px] active:shadow-[0_1px_0_0_#3340C8];
+  }
   .btn-ghost { @apply text-slate-600 hover:bg-slate-100; }
+}
+
+/* The mascot blinks now and then */
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+.mascot-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: blink 6s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
