@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Clock, SearchX, ClipboardList, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Clock, GripVertical } from 'lucide-react';
 import {
   DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, pointerWithin, useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core';
@@ -10,7 +10,7 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities';
 import { useData, DAY_MS } from '@/components/DataProvider';
 import TaskModal from '@/components/TaskModal';
-import { Avatar, Counts, Crumbs, EmptyState, PriorityBadge, StatusBadge, STATUSES } from '@/components/ui';
+import { Avatar, Counts, Crumbs, EmptyState, PriorityBadge, StatusBadge, STATUSES, STATUS_STYLE, PRIORITY_BAR } from '@/components/ui';
 
 const RANK = { High: 0, Medium: 1, Low: 2 };
 const COL = 'col:';
@@ -40,13 +40,13 @@ function CardContent({ t, now, handleProps, onStatus, onEdit, onDelete }) {
         <div className="flex min-w-0 items-start gap-1.5">
           {handleProps ? (
             <button type="button" aria-label="Drag to move" title="Drag to move" {...handleProps}
-              className="-ml-1 mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-slate-300 hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing">
+              className="-ml-1 mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing">
               <GripVertical size={16} />
             </button>
           ) : (
             <span className="-ml-1 mt-0.5 shrink-0 p-0.5 text-slate-400"><GripVertical size={16} /></span>
           )}
-          <h3 className="font-medium text-slate-900">{t.title}</h3>
+          <h3 className={`font-semibold ${t.status === 'Finished' ? 'text-slate-500 line-through decoration-emerald-400/70' : 'text-ink'}`}>{t.title}</h3>
         </div>
         <PriorityBadge priority={t.priority} />
       </div>
@@ -61,8 +61,8 @@ function CardContent({ t, now, handleProps, onStatus, onEdit, onDelete }) {
           onChange={e => onStatus?.(t, e.target.value)}>
           {STATUSES.map(x => <option key={x}>{x}</option>)}
         </select>
-        <button aria-label="Edit task" onClick={() => onEdit?.(t)} className="rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-indigo-600"><Pencil size={16} /></button>
-        <button aria-label="Delete task" onClick={() => onDelete?.(t)} className="rounded-md p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
+        <button aria-label="Edit task" onClick={() => onEdit?.(t)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-brand"><Pencil size={16} /></button>
+        <button aria-label="Delete task" onClick={() => onDelete?.(t)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
       </div>
     </>
   );
@@ -72,7 +72,7 @@ function SortableCard(props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.t.id });
   return (
     <article ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${isDragging ? 'opacity-40' : ''}`}>
+      className={`rounded-2xl border border-l-4 border-slate-200 bg-white p-4 shadow-sm ${PRIORITY_BAR[props.t.priority]} ${isDragging ? 'opacity-40' : ''}`}>
       <CardContent {...props} handleProps={{ ...attributes, ...listeners }} />
     </article>
   );
@@ -81,15 +81,19 @@ function SortableCard(props) {
 function Column({ status, items, highlight, children }) {
   const { setNodeRef } = useDroppable({ id: COL + status });
   return (
-    <section className={`flex flex-col rounded-2xl p-3 transition-colors ${highlight ? 'bg-indigo-50 ring-2 ring-indigo-300' : 'bg-slate-100/70'}`}>
+    <section className={`flex flex-col rounded-3xl p-3 transition-colors ${highlight ? 'bg-brand-soft ring-2 ring-brand/40' : STATUS_STYLE[status].col}`}>
       <div className="mb-3 flex items-center justify-between px-1">
         <StatusBadge status={status} />
-        <span className="text-xs font-medium text-slate-500">{items.length}</span>
+        <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-slate-600 shadow-sm">{items.length}</span>
       </div>
       <SortableContext items={items.map(t => t.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="min-h-[120px] flex-1 space-y-3">
           {children}
-          {!items.length && <p className="py-6 text-center text-xs text-slate-400">No tasks — drop one here</p>}
+          {!items.length && (
+            <div className="rounded-2xl border-2 border-dashed border-slate-300/70 px-3 py-8 text-center text-sm text-slate-500">
+              Nothing here yet. Drag a task in.
+            </div>
+          )}
         </div>
       </SortableContext>
     </section>
@@ -113,7 +117,7 @@ export default function WorkerPage() {
   if (loading) return <div className="h-40 animate-pulse rounded-2xl bg-slate-200/70" />;
   if (!worker || !team) {
     return (
-      <EmptyState icon={SearchX} title="Worker not found" hint="They may have been removed.">
+      <EmptyState title="Worker not found" hint="They may have been removed.">
         <Link href="/" className="btn btn-primary">Back to teams</Link>
       </EmptyState>
     );
@@ -181,17 +185,17 @@ export default function WorkerPage() {
       <Crumbs items={[{ label: 'Teams', href: '/' }, { label: team.name, href: `/teams/${team.id}` }, { label: worker.name }]} />
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Avatar name={worker.name} size="h-14 w-14" />
+          <Avatar name={worker.name} size="h-16 w-16" />
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{worker.name}</h1>
-            <div className="mt-1.5"><Counts tasks={mine} /></div>
+            <h1 className="font-display text-3xl font-semibold text-ink">{worker.name}</h1>
+            <div className="mt-2"><Counts tasks={mine} labels /></div>
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => setEditing({})}><Plus size={16} /> Add task</button>
       </div>
 
       {!mine.length ? (
-        <EmptyState icon={ClipboardList} title="No tasks yet" hint="Add a task and pick a priority based on current workload.">
+        <EmptyState title="No tasks yet" hint="Add a task and pick a priority based on current workload.">
           <button className="btn btn-primary" onClick={() => setEditing({})}><Plus size={16} /> Add task</button>
         </EmptyState>
       ) : (
@@ -217,7 +221,7 @@ export default function WorkerPage() {
           </div>
           <DragOverlay dropAnimation={null}>
             {dragged && (
-              <article className="rounded-xl border border-indigo-300 bg-white p-4 shadow-xl ring-2 ring-indigo-200">
+              <article className={`rotate-2 rounded-2xl border border-l-4 border-slate-200 bg-white p-4 shadow-xl ring-2 ring-brand/30 ${PRIORITY_BAR[dragged.priority]}`}>
                 <CardContent t={dragged} now={now} />
               </article>
             )}
