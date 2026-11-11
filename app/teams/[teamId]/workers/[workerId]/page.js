@@ -2,12 +2,13 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Clock, SearchX, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, Clock, SearchX, ClipboardList, ChevronUp, ChevronDown } from 'lucide-react';
 import { useData, DAY_MS } from '@/components/DataProvider';
 import TaskModal from '@/components/TaskModal';
 import { Avatar, Counts, Crumbs, EmptyState, PriorityBadge, StatusBadge, STATUSES } from '@/components/ui';
 
 const RANK = { High: 0, Medium: 1, Low: 2 };
+const pos = t => t.position ?? 0;
 const timeLeft = (iso, now) => {
   const m = Math.max(0, Math.floor((DAY_MS - (now - Date.parse(iso))) / 60000));
   return `${Math.floor(m / 60)}h ${m % 60}m`;
@@ -30,8 +31,33 @@ export default function WorkerPage() {
   }
   const mine = tasks
     .filter(t => t.worker_id === worker.id)
-    .sort((a, b) => RANK[a.priority] - RANK[b.priority] || a.created_at.localeCompare(b.created_at));
-  const save = values => (editing.id ? updateTask(editing.id, values) : addTask({ ...values, worker_id: worker.id }));
+    .sort((a, b) => pos(a) - pos(b) || a.created_at.localeCompare(b.created_at));
+
+  // Where a task lands when it is created or moved to another column:
+  // right after the last task of the same or higher priority (so High stays above Low by default).
+  const slot = (status, priority, excludeId) => {
+    const col = mine.filter(t => t.status === status && t.id !== excludeId);
+    if (!col.length) return Date.now() / 1000;
+    let i = -1;
+    col.forEach((t, k) => { if (RANK[t.priority] <= RANK[priority]) i = k; });
+    if (i === -1) return pos(col[0]) - 1;
+    if (i === col.length - 1) return pos(col[i]) + 1;
+    return (pos(col[i]) + pos(col[i + 1])) / 2;
+  };
+
+  // Manual reordering inside one status column (dir: -1 = up, +1 = down)
+  const move = (items, i, dir) => {
+    const p = dir < 0
+      ? (i === 1 ? pos(items[0]) - 1 : (pos(items[i - 2]) + pos(items[i - 1])) / 2)
+      : (i === items.length - 2 ? pos(items[i + 1]) + 1 : (pos(items[i + 1]) + pos(items[i + 2])) / 2);
+    updateTask(items[i].id, { position: p }).catch(() => {});
+  };
+
+  const save = values => {
+    if (!editing.id) return addTask({ ...values, worker_id: worker.id, position: slot(values.status, values.priority) });
+    const extra = values.status !== editing.status ? { position: slot(values.status, values.priority, editing.id) } : {};
+    return updateTask(editing.id, { ...values, ...extra });
+  };
 
   return (
     <>
@@ -62,7 +88,7 @@ export default function WorkerPage() {
                   <span className="text-xs font-medium text-slate-500">{items.length}</span>
                 </div>
                 <div className="space-y-3">
-                  {items.map(t => (
+                  {items.map((t, i) => (
                     <article key={t.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="flex items-start justify-between gap-2">
                         <h3 className="font-medium text-slate-900">{t.title}</h3>
@@ -76,9 +102,13 @@ export default function WorkerPage() {
                       )}
                       <div className="mt-3 flex items-center gap-2">
                         <select aria-label="Change status" value={t.status} className="input min-w-0 flex-1 py-1.5"
-                          onChange={e => updateTask(t.id, { status: e.target.value }).catch(() => {})}>
+                          onChange={e => updateTask(t.id, { status: e.target.value, position: slot(e.target.value, t.priority, t.id) }).catch(() => {})}>
                           {STATUSES.map(x => <option key={x}>{x}</option>)}
                         </select>
+                        <div className="flex flex-col">
+                          <button aria-label="Move up" title="Move up" disabled={i === 0} onClick={() => move(items, i, -1)} className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-400"><ChevronUp size={16} /></button>
+                          <button aria-label="Move down" title="Move down" disabled={i === items.length - 1} onClick={() => move(items, i, 1)} className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-400"><ChevronDown size={16} /></button>
+                        </div>
                         <button aria-label="Edit task" onClick={() => setEditing(t)} className="rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-indigo-600"><Pencil size={16} /></button>
                         <button aria-label="Delete task" onClick={() => confirm('Delete this task?') && deleteTask(t.id).catch(() => {})} className="rounded-md p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={16} /></button>
                       </div>
